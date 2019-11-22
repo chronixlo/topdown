@@ -64,22 +64,73 @@ const setDestination = () => {
   };
 };
 
+const keys = {
+  w: false,
+  a: false,
+  s: false,
+  d: false,
+};
+
 function updatePointerPosition(e) {
   pointer.x = e.offsetX;
   pointer.y = e.offsetY;
-}
 
-const pointerUp = () => {
-  pointer.isDown = false;
-  document.removeEventListener('mouseup', pointerUp);
-};
+  let x = pointer.x + player.x - halfWidth;
+  let y = pointer.y + player.y - halfHeight;
+
+  const delta_x = x - player.x;
+  const delta_y = y - player.y;
+  const theta_radians = Math.atan2(delta_y, delta_x);
+
+  player.facing = theta_radians;
+}
 
 canvas.addEventListener('mousemove', updatePointerPosition);
 
-canvas.addEventListener('mousedown', (e) => {
-  pointer.isDown = true;
-  document.addEventListener('mouseup', pointerUp);
-});
+function keyDown(e) {
+  switch (e.key) {
+    case 'w': {
+      keys.w = true;
+      break;
+    }
+    case 'a': {
+      keys.a = true;
+      break;
+    }
+    case 's': {
+      keys.s = true;
+      break;
+    }
+    case 'd': {
+      keys.d = true;
+      break;
+    }
+  }
+}
+
+function keyUp(e) {
+  switch (e.key) {
+    case 'w': {
+      keys.w = false;
+      break;
+    }
+    case 'a': {
+      keys.a = false;
+      break;
+    }
+    case 's': {
+      keys.s = false;
+      break;
+    }
+    case 'd': {
+      keys.d = false;
+      break;
+    }
+  }
+}
+
+document.addEventListener('keydown', keyDown);
+document.addEventListener('keyup', keyUp);
 
 let lastFrameTime = Date.now();
 
@@ -91,23 +142,29 @@ function loop() {
 
   ctx.clearRect(0, 0, viewWidth, viewHeight);
 
-  setDestination();
+  let p = MOVEMENT_SPEED * (frameTime / 1000);
 
-  if (player.destination) {
-    let distance = Math.hypot(player.x - player.destination.x, player.y - player.destination.y);
+  // let x = player.x + p * Math.cos(player.facing * Math.PI / 180);
+  // let y = player.y + p * Math.sin(player.facing * Math.PI / 180);
 
-    if (distance > 1) {
-      let p = MOVEMENT_SPEED * (frameTime / 1000) / distance;
-
-      let x = player.x + p * (player.destination.x - player.x);
-      let y = player.y + p * (player.destination.y - player.y);
-
-      player.x = x;
-      player.y = y;
-    } else {
-      player.destination = null;
-    }
+  let x = player.x;
+  let y = player.y;
+console.log(keys)
+  if (keys.w) {
+    y = player.y - p;
   }
+  if (keys.a) {
+    x = player.x - p;
+  }
+  if (keys.s) {
+    y = player.y + p;
+  }
+  if (keys.d) {
+    x = player.x + p;
+  }
+
+  player.x = x;
+  player.y = y;
 
   ctx.fillStyle = '#ccc';
   ctx.fillRect(
