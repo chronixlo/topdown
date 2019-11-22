@@ -3,6 +3,9 @@ import '../styles/index.scss';
 // pixels per second
 const MOVEMENT_SPEED = 100;
 
+const VIEW_DISTANCE = 70;
+const FOV = 40;
+
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
@@ -15,6 +18,7 @@ const player = {
   x: 75,
   y: 75,
   destination: null,
+  facing: 0,
 };
 
 const pointer = {
@@ -29,7 +33,7 @@ const halfHeight = viewHeight / 2;
 canvas.width = viewWidth;
 canvas.height = viewHeight;
 
-const move = () => {
+const setDestination = () => {
   if (!pointer.isDown) {
     return;
   }
@@ -48,6 +52,12 @@ const move = () => {
     y = mapSize;
   }
 
+  const delta_x = x - player.x;
+  const delta_y = y - player.y;
+  const theta_radians = Math.atan2(delta_y, delta_x);
+
+  player.facing = theta_radians;
+
   player.destination = {
     x: x,
     y: y,
@@ -61,7 +71,7 @@ function updatePointerPosition(e) {
 
 const pointerUp = () => {
   pointer.isDown = false;
-  document.removeEventListener('mouseup', d);
+  document.removeEventListener('mouseup', pointerUp);
 };
 
 canvas.addEventListener('mousemove', updatePointerPosition);
@@ -81,7 +91,7 @@ function loop() {
 
   ctx.clearRect(0, 0, viewWidth, viewHeight);
 
-  move();
+  setDestination();
 
   if (player.destination) {
     let distance = Math.hypot(player.x - player.destination.x, player.y - player.destination.y);
@@ -107,7 +117,18 @@ function loop() {
     Math.min(viewHeight, mapSize - player.y + halfHeight)
   );
 
-
+  // fov
+  // const fovStartX = halfWidth + VIEW_DISTANCE * Math.cos(player.facing - FOV / 2 * Math.PI / 180);
+  // const fovStartY = halfHeight + VIEW_DISTANCE * Math.sin(player.facing - FOV / 2 * Math.PI / 180);
+  // const fovEndX = halfWidth + VIEW_DISTANCE * Math.cos(player.facing + FOV / 2 * Math.PI / 180);
+  // const fovEndY = halfHeight + VIEW_DISTANCE * Math.sin(player.facing + FOV / 2 * Math.PI / 180);
+  ctx.fillStyle = '#ddd';
+  ctx.beginPath();
+  ctx.moveTo(halfWidth, halfHeight);
+  ctx.arc(halfWidth, halfHeight, VIEW_DISTANCE, player.facing - FOV / 2 * Math.PI / 180, player.facing + FOV / 2 * Math.PI / 180);
+  ctx.lineTo(halfWidth, halfHeight);
+  ctx.closePath();
+  ctx.fill();
 
   if (player.destination) {
     ctx.beginPath();
@@ -120,11 +141,11 @@ function loop() {
   // player
 
   ctx.beginPath();
-  ctx.strokeStyle = '#000';
-  ctx.arc(halfWidth, halfHeight, 2, 0, Math.PI * 2);
+  ctx.fillStyle = '#000';
+  ctx.arc(halfWidth, halfHeight, 5, 0, Math.PI * 2);
   ctx.closePath();
+  ctx.fill();
 
-  ctx.stroke();
 
   lastFrameTime = time;
 
