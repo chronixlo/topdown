@@ -19,12 +19,13 @@ const player = {
   y: 75,
   destination: null,
   facing: 0,
+  skill: null,
 };
 
-const pointer = {
-  x: 0,
-  y: 0,
-  isDown: false,
+const controls = {
+  mouseX: 0,
+  mouseY: 0,
+  mouse2: false,
 };
 
 const halfWidth = viewWidth / 2;
@@ -34,11 +35,14 @@ canvas.width = viewWidth;
 canvas.height = viewHeight;
 
 const setDestination = () => {
-  if (!pointer.isDown) {
+  if (!controls.mouse2) {
     return;
   }
-  let x = pointer.x + player.x - halfWidth;
-  let y = pointer.y + player.y - halfHeight;
+
+  player.skill = null;
+
+  let x = controls.mouseX + player.x - halfWidth;
+  let y = controls.mouseY + player.y - halfHeight;
 
   if (x < 0) {
     x = 0;
@@ -65,21 +69,37 @@ const setDestination = () => {
 };
 
 function updatePointerPosition(e) {
-  pointer.x = e.offsetX;
-  pointer.y = e.offsetY;
+  controls.mouseX = e.offsetX;
+  controls.mouseY = e.offsetY;
 }
 
-const pointerUp = () => {
-  pointer.isDown = false;
-  document.removeEventListener('mouseup', pointerUp);
+const pointerUp = (e) => {
+  if (e.which === 3) {
+    controls.mouse2 = false;
+  }
 };
 
 canvas.addEventListener('mousemove', updatePointerPosition);
 
 canvas.addEventListener('mousedown', (e) => {
-  pointer.isDown = true;
-  document.addEventListener('mouseup', pointerUp);
+  if (e.which === 3) {
+    controls.mouse2 = true;
+  }
 });
+
+document.addEventListener('mouseup', pointerUp);
+
+canvas.addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+});
+
+function keyPress(e) {
+  if (e.key === 'q') {
+    player.skill = 'q';
+  }
+}
+
+document.addEventListener('keypress', keyPress);
 
 let lastFrameTime = Date.now();
 
@@ -109,6 +129,7 @@ function loop() {
     }
   }
 
+  // play area
   ctx.fillStyle = '#ccc';
   ctx.fillRect(
     Math.max(0, halfWidth - player.x),
@@ -139,13 +160,50 @@ function loop() {
   }
 
   // player
-
   ctx.beginPath();
   ctx.fillStyle = '#000';
   ctx.arc(halfWidth, halfHeight, 5, 0, Math.PI * 2);
   ctx.closePath();
   ctx.fill();
 
+
+  // out of bounds
+  // todo: optimize
+  ctx.fillStyle = '#111';
+  // left
+  if (halfWidth - player.x > 0) {
+    ctx.fillRect(0, 0, halfWidth - player.x, viewHeight);
+  }
+  // top
+  if (halfHeight - player.y > 0) {
+    ctx.fillRect(0, 0, viewWidth, halfHeight - player.y);
+  }
+  // right
+  if (mapSize - player.x + halfWidth < viewWidth) {
+    ctx.fillRect(mapSize - player.x + halfWidth, 0, viewWidth - (mapSize - player.x + halfWidth), viewHeight);
+  }
+  // bottom
+  if (mapSize - player.y + halfHeight < viewHeight) {
+    ctx.fillRect(0, mapSize - player.y + halfHeight, viewWidth, viewHeight - (mapSize - player.y + halfHeight));
+  }
+
+  // ctx.fillRect(
+  //   Math.max(0, halfWidth - player.x),
+  //   Math.max(0, halfHeight - player.y),
+  //   Math.min(viewWidth, mapSize - player.x + halfWidth),
+  //   Math.min(viewHeight, mapSize - player.y + halfHeight)
+  // );
+
+  // skill targeting
+  if (player.skill) {
+    ctx.beginPath();
+    ctx.fillStyle = '#333';
+    ctx.strokeStyle = '#222';
+    ctx.arc(controls.mouseX, controls.mouseY, 15, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.fill();
+  }
 
   lastFrameTime = time;
 
