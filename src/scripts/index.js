@@ -1,15 +1,10 @@
+import player from './player';
+import controls from './controls';
+import { screenToMapCoords, mapToScreenCoords } from './helpers';
+import { MOVEMENT_SPEED, TURN_SPEED, VIEW_DISTANCE, FOV, BLINK_RANGE } from './consts';
+
 import '../styles/index.scss';
 
-// pixels per second
-const MOVEMENT_SPEED = 300;
-
-// radians per second
-const TURN_SPEED = 6;
-
-const VIEW_DISTANCE = 150;
-const FOV = 60;
-
-const BLINK_RANGE = 200;
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -17,61 +12,13 @@ const ctx = canvas.getContext('2d');
 const viewWidth = window.innerWidth;
 const viewHeight = window.innerHeight;
 
-const mapSize = 1000;
+export const mapSize = 1000;
 
-const player = {
-  x: 750,
-  y: 750,
-  destination: null,
-  facing: 0,
-  facingTarget: null,
-  skill: null,
-};
-
-const controls = {
-  mouseX: 0,
-  mouseY: 0,
-  mouse1: false,
-  mouse2: false,
-};
-
-const halfWidth = viewWidth / 2;
-const halfHeight = viewHeight / 2;
+export const halfWidth = viewWidth / 2;
+export const halfHeight = viewHeight / 2;
 
 canvas.width = viewWidth;
 canvas.height = viewHeight;
-
-const setDestination = (isClick) => {
-  player.skill = null;
-
-  // todo: face cursor even if destination is different
-  let x = controls.mouseX + player.x - halfWidth;
-  let y = controls.mouseY + player.y - halfHeight;
-
-  if (x < 0) {
-    x = 0;
-  } else if (x > mapSize) {
-    x = mapSize;
-  }
-
-  if (y < 0) {
-    y = 0;
-  } else if (y > mapSize) {
-    y = mapSize;
-  }
-
-  const delta_x = x - player.x;
-  const delta_y = y - player.y;
-  const theta_radians = Math.atan2(delta_y, delta_x);
-
-  player.facingTarget = theta_radians;
-
-  player.destination = {
-    x: x,
-    y: y,
-    time: isClick ? Date.now() : player.destination && player.destination.time,
-  };
-};
 
 function updatePointerPosition(e) {
   controls.mouseX = e.offsetX;
@@ -91,31 +38,20 @@ const pointerUp = (e) => {
       };
 
       if (distance > BLINK_RANGE) {
-        let x = controls.mouseX + player.x - halfWidth;
-        let y = controls.mouseY + player.y - halfHeight;
+        let mapCoords = screenToMapCoords(controls.mouseX, controls.mouseY);
 
-        if (x < 0) {
-          x = 0;
-        } else if (x > mapSize) {
-          x = mapSize;
-        }
-
-        if (y < 0) {
-          y = 0;
-        } else if (y > mapSize) {
-          y = mapSize;
-        }
-
-        const delta_x = x - player.x;
-        const delta_y = y - player.y;
+        const delta_x = mapCoords.x - player.x;
+        const delta_y = mapCoords.y - player.y;
         const theta_radians = Math.atan2(delta_y, delta_x);
 
         skillTargetCoords.x = halfWidth + BLINK_RANGE * Math.cos(theta_radians);
         skillTargetCoords.y = halfHeight + BLINK_RANGE * Math.sin(theta_radians);
       }
 
-      player.x = skillTargetCoords.x + player.x - halfWidth;
-      player.y = skillTargetCoords.y + player.y - halfHeight;
+      let mapCoords = screenToMapCoords(skillTargetCoords.x, skillTargetCoords.y);
+
+      player.x = mapCoords.x;
+      player.y = mapCoords.y;
 
       player.destination = null;
       player.skill = null;
@@ -134,7 +70,7 @@ canvas.addEventListener('mousedown', (e) => {
   }
   if (e.which === 3) {
     controls.mouse2 = true;
-    setDestination(true);
+    player.setDestination(true);
   }
 });
 
@@ -163,7 +99,7 @@ function loop() {
   ctx.clearRect(0, 0, viewWidth, viewHeight);
 
   if (controls.mouse2) {
-    setDestination();
+    player.setDestination();
   }
 
   if (player.destination) {
@@ -217,25 +153,14 @@ function loop() {
   // console.log(player.facing)
 
   // play area
+  let playAreaScreenCoords = mapToScreenCoords(mapSize, mapSize);
   ctx.fillStyle = '#ccc';
   ctx.fillRect(
     Math.max(0, halfWidth - player.x),
     Math.max(0, halfHeight - player.y),
-    Math.min(viewWidth, mapSize - player.x + halfWidth),
-    Math.min(viewHeight, mapSize - player.y + halfHeight)
+    Math.min(viewWidth, playAreaScreenCoords.x),
+    Math.min(viewHeight, playAreaScreenCoords.y)
   );
-
-  // skill range
-  if (player.skill) {
-    ctx.beginPath();
-    ctx.fillStyle = '#fffa';
-    ctx.strokeStyle = '#222a';
-    ctx.lineWidth = 2;
-    ctx.arc(halfWidth, halfHeight, BLINK_RANGE, 0, Math.PI * 2);
-    ctx.closePath();
-    ctx.stroke();
-    // ctx.fill();
-  }
 
   // fov
   // const fovStartX = halfWidth + VIEW_DISTANCE * Math.cos(player.facing - FOV / 2 * Math.PI / 180);
@@ -250,13 +175,27 @@ function loop() {
   ctx.closePath();
   ctx.fill();
 
+  // skill range
+  if (player.skill) {
+    ctx.beginPath();
+    ctx.fillStyle = '#fffa';
+    ctx.strokeStyle = '#222a';
+    ctx.lineWidth = 2;
+    ctx.arc(halfWidth, halfHeight, BLINK_RANGE, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.stroke();
+    // ctx.fill();
+  }
+
+  // destination target marker
   if (player.destination) {
+    const destinationScreenCoords = mapToScreenCoords(player.destination.x, player.destination.y);
     const delta = time - player.destination.time;
     const radius = Math.max(20 - delta / 10, 5);
     ctx.beginPath();
     ctx.strokeStyle = '#f00';
     ctx.lineWidth = 1;
-    ctx.arc(player.destination.x - player.x + halfWidth, player.destination.y - player.y + halfHeight, radius, 0, Math.PI * 2);
+    ctx.arc(destinationScreenCoords.x, destinationScreenCoords.y, radius, 0, Math.PI * 2);
     ctx.closePath();
     ctx.stroke();
   }
@@ -274,6 +213,7 @@ function loop() {
   const x = halfWidth + 5 * Math.cos(player.facing);
   const y = halfHeight + 5 * Math.sin(player.facing);
 
+  // facing dot
   ctx.beginPath();
   ctx.fillStyle = '#a34';
   ctx.arc(x, y, 3, 0, Math.PI * 2);
@@ -292,12 +232,12 @@ function loop() {
     ctx.fillRect(0, 0, viewWidth, halfHeight - player.y);
   }
   // right
-  if (mapSize - player.x + halfWidth < viewWidth) {
-    ctx.fillRect(mapSize - player.x + halfWidth, 0, viewWidth - (mapSize - player.x + halfWidth), viewHeight);
+  if (playAreaScreenCoords.x < viewWidth) {
+    ctx.fillRect(playAreaScreenCoords.x, 0, viewWidth - playAreaScreenCoords.x, viewHeight);
   }
   // bottom
-  if (mapSize - player.y + halfHeight < viewHeight) {
-    ctx.fillRect(0, mapSize - player.y + halfHeight, viewWidth, viewHeight - (mapSize - player.y + halfHeight));
+  if (playAreaScreenCoords.y < viewHeight) {
+    ctx.fillRect(0, playAreaScreenCoords.y, viewWidth, viewHeight - playAreaScreenCoords.y);
   }
 
   // skill targeting
@@ -310,23 +250,10 @@ function loop() {
     };
 
     if (distance > BLINK_RANGE) {
-      let x = controls.mouseX + player.x - halfWidth;
-      let y = controls.mouseY + player.y - halfHeight;
+      let mapCoords = screenToMapCoords(controls.mouseX, controls.mouseY);
 
-      if (x < 0) {
-        x = 0;
-      } else if (x > mapSize) {
-        x = mapSize;
-      }
-
-      if (y < 0) {
-        y = 0;
-      } else if (y > mapSize) {
-        y = mapSize;
-      }
-
-      const delta_x = x - player.x;
-      const delta_y = y - player.y;
+      const delta_x = mapCoords.x - player.x;
+      const delta_y = mapCoords.y - player.y;
       const theta_radians = Math.atan2(delta_y, delta_x);
 
       skillTargetCoords.x = halfWidth + BLINK_RANGE * Math.cos(theta_radians);
